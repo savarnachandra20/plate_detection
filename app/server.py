@@ -1,15 +1,11 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
-from io import StringIO
-import io
 import base64
-from PIL import Image
 import cv2
 import numpy as np
-import imutils
+from frame_processor import process_frame
 
-app = Flask(__name__, static_url_path='',
-            static_folder='static')
+app = Flask(__name__, static_url_path='', static_folder='static')
 socketio = SocketIO(app)
 
 
@@ -18,33 +14,31 @@ def index():
     return render_template('index.html')
 
 
+printed_image = 0
+
+
 @socketio.on('image')
 def image(data_image):
-    sbuf = StringIO()
-    sbuf.write(data_image)
+    global printed_image
+    # Decode the received image data
+    decoded_data = base64.b64decode(data_image)
+    np_data = np.frombuffer(decoded_data, np.uint8)
+    if printed_image == 0:
+        # Save the image to the disk
+        with open('image.jpg', 'wb') as file:
+            file.write(decoded_data)
+        printed_image = 1
+    img = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
 
-    # decode and convert into image
-    b = io.BytesIO(base64.b64decode(data_image))
-    pimg = Image.open(b)
+    processed_frame = process_frame(img)
 
-    # converting RGB to BGR, as opencv standards
-    frame = cv2.cvtColor(np.array(pimg), cv2.COLOR_RGB2BGR)
-
-    # Process the image frame
-    frame = imutils.resize(frame, width=700)
-    frame = cv2.flip(frame, 1)
-
-    # Invert the pixel values to make the frame negative
-    frame_negative = 255 - frame
-
-    imgencode = cv2.imencode('.jpg', frame_negative)[1]
-
-    # base64 encode
+    # Encode the processed frame to base64 string
+    _, imgencode = cv2.imencode('.jpg', processed_frame)
     stringData = base64.b64encode(imgencode).decode('utf-8')
     b64_src = 'data:image/jpg;base64,'
     stringData = b64_src + stringData
 
-    # emit the frame back
+    # Emit the processed frame back
     emit('response_back', stringData)
 
 
