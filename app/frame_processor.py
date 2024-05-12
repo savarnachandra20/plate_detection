@@ -6,7 +6,12 @@ from paddleocr import PaddleOCR
 from ultralytics import YOLO
 from datetime import datetime
 
-model_path = os.path.join("../", "models", "plate_detector.pt")
+# International plate detector
+# model_path = os.path.join(".", "models", "plate_detector_intl.pt")
+# India #1 plate detector
+model_path = os.path.join(".", "models", "plate_detector_india_1.pt")
+# India #2 plate detector
+# model_path = os.path.join(".", "models", "plate_detector_india_2.pt")
 
 # Initialize PaddleOCR
 ocr = PaddleOCR(use_angle_cls=True, lang='en')
