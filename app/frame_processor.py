@@ -2,14 +2,14 @@ import os
 import re
 import sqlite3
 import cv2
-import easyocr
+from paddleocr import PaddleOCR
 from ultralytics import YOLO
 from datetime import datetime
 
 model_path = os.path.join("../", "models", "plate_detector.pt")
 
-# Initialize EasyOCR
-reader = easyocr.Reader(['en'])
+# Initialize PaddleOCR
+ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
 # Load a model
 model = YOLO(model_path)  # load a custom model
@@ -18,9 +18,25 @@ threshold = 0.5
 
 print("loaded")
 
+# Connect to SQLite database (or create if not exists)
+conn = sqlite3.connect('plates.db')
+
+# Create a cursor object to execute SQL commands
+cur = conn.cursor()
+
+# Create a table if not exists to store plate numbers and timestamps
+cur.execute('''CREATE TABLE IF NOT EXISTS plates (
+               plate_number TEXT,
+               first_seen TEXT,
+               last_seen TEXT
+               )''')
+
+# Commit changes and close connection
+conn.commit()
+
 
 def process_frame(frame):
-    global model, threshold, reader
+    global model, threshold, ocr
 
     H, W, _ = frame.shape
 
@@ -38,34 +54,47 @@ def process_frame(frame):
             # Crop the detected plate region
             plate_region = frame[int(y1):int(y2), int(x1):int(x2)]
 
+            # Convert plate region to grayscale
+            gray_plate_region = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
+
+            # Apply adaptive histogram equalization
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            contrast_plate_region = clahe.apply(gray_plate_region)
+
             # Perform OCR on the plate region
-            result = reader.readtext(plate_region)
+            result = ocr.ocr(contrast_plate_region, det=False)
 
             if result:
                 # Extract the recognized text
-                recognized_text = result[0][1]
+                recognized_text, confidence = result[0][0]
+
+                recognized_text = recognized_text.replace(" ", "")
 
                 result_is_plate = re.match(
-                    r'^[A-Z]-[A-Z|0-9]{3}-[A-Z|0-9]{2}$', recognized_text)
+                    r'^[A-Z]{2}[A-Z|0-9]{2}[A-Z|0-9]{2}[0-9]{4}$', recognized_text)
 
                 # Draw the recognized text on the frame
                 cv2.putText(frame, recognized_text, (int(x1), int(y2 + 30)),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                if result_is_plate and score > 0.95:
+                print(result_is_plate, score, recognized_text)
+                if result_is_plate and score > 0.45:
                     plate_number = recognized_text
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                    # Check if plate number already exists in the database
-                    # cur.execute("SELECT * FROM plates WHERE plate_number=?",
-                    #             (plate_number,))
-                    # existing_record = cur.fetchone()
+                    conn = sqlite3.connect('plates.db')
+                    cur = conn.cursor()
 
-                    # if existing_record:
-                    #     cur.execute(
-                    #         "UPDATE plates SET last_seen=? WHERE plate_number=?", (timestamp, plate_number))
-                    # else:
-                    #     cur.execute("INSERT INTO plates (plate_number, first_seen, last_seen) VALUES (?, ?, ?)",
-                    #                 (plate_number, timestamp, timestamp))
-                    # conn.commit()
+                    # Check if plate number already exists in the database
+                    cur.execute("SELECT * FROM plates WHERE plate_number=?",
+                                (plate_number,))
+                    existing_record = cur.fetchone()
+
+                    if existing_record:
+                        cur.execute(
+                            "UPDATE plates SET last_seen=? WHERE plate_number=?", (timestamp, plate_number))
+                    else:
+                        cur.execute("INSERT INTO plates (plate_number, first_seen, last_seen) VALUES (?, ?, ?)",
+                                    (plate_number, timestamp, timestamp))
+                    conn.commit()
 
     return frame

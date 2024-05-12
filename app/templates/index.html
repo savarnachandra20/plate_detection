@@ -28,18 +28,22 @@
   video.width = 500;
   video.height = 375;
 
-  if (navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then(function (stream) {
-        video.srcObject = stream;
-        video.play();
-        captureAndSend();
-      })
-      .catch(function (err0r) {
-        console.log(err0r);
-        console.log("Something went wrong!");
-      });
+  try {
+    if (navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(function (stream) {
+          video.srcObject = stream;
+          video.play();
+          captureAndSend();
+        })
+        .catch(function (err0r) {
+          console.log(err0r);
+          console.log("Something went wrong!");
+        });
+    }
+  } catch (err) {
+    alert(err.message);
   }
 
   function captureAndSend() {
@@ -55,7 +59,6 @@
       cv.imshow(canvas, src);
       var data = canvas.toDataURL(type);
       data = data.replace("data:" + type + ";base64,", ""); // Remove junk at the beginning
-
       socket.emit("image", data);
     }
 

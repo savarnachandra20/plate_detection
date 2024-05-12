@@ -30,7 +30,13 @@ def image(data_image):
         printed_image = 1
     img = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
 
-    processed_frame = process_frame(img)
+    try:
+        processed_frame = process_frame(img)
+    except Exception as e:
+        print(e)
+        # Emit the same image back if an error occurs during processing
+        emit('response_back', data_image)
+        return
 
     # Encode the processed frame to base64 string
     _, imgencode = cv2.imencode('.jpg', processed_frame)
