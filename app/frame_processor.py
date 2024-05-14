@@ -11,7 +11,9 @@ from datetime import datetime
 # India #1 plate detector
 # model_path = os.path.join("..", "models", "plate_detector_india_1.pt")
 # India #2 plate detector
-model_path = os.path.join("..", "models", "plate_detector_india_2.pt")
+# model_path = os.path.join("..", "models", "plate_detector_india_2.pt")
+# India #2 plate detector
+model_path = os.path.join("..", "models", "plate_detector_india_2_n.pt")
 
 # Initialize PaddleOCR
 ocr = PaddleOCR(use_angle_cls=True, lang='en')
@@ -60,14 +62,14 @@ def process_frame(frame):
             plate_region = frame[int(y1):int(y2), int(x1):int(x2)]
 
             # Convert plate region to grayscale
-            gray_plate_region = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
+            # gray_plate_region = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
 
             # Apply adaptive histogram equalization
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            contrast_plate_region = clahe.apply(gray_plate_region)
+            # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            # contrast_plate_region = clahe.apply(gray_plate_region)
 
             # Perform OCR on the plate region
-            result = ocr.ocr(contrast_plate_region, det=False)
+            result = ocr.ocr(plate_region, det=False)
 
             if result:
                 # Extract the recognized text
@@ -86,20 +88,20 @@ def process_frame(frame):
                     plate_number = recognized_text
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                    conn = sqlite3.connect('plates.db')
-                    cur = conn.cursor()
+                    # conn = sqlite3.connect('plates.db')
+                    # cur = conn.cursor()
 
                     # Check if plate number already exists in the database
-                    cur.execute("SELECT * FROM plates WHERE plate_number=?",
-                                (plate_number,))
-                    existing_record = cur.fetchone()
+                    # cur.execute("SELECT * FROM plates WHERE plate_number=?",
+                    #             (plate_number,))
+                    # existing_record = cur.fetchone()
 
-                    if existing_record:
-                        cur.execute(
-                            "UPDATE plates SET last_seen=? WHERE plate_number=?", (timestamp, plate_number))
-                    else:
-                        cur.execute("INSERT INTO plates (plate_number, first_seen, last_seen) VALUES (?, ?, ?)",
-                                    (plate_number, timestamp, timestamp))
-                    conn.commit()
+                    # if existing_record:
+                    #     cur.execute(
+                    #         "UPDATE plates SET last_seen=? WHERE plate_number=?", (timestamp, plate_number))
+                    # else:
+                    #     cur.execute("INSERT INTO plates (plate_number, first_seen, last_seen) VALUES (?, ?, ?)",
+                    #                 (plate_number, timestamp, timestamp))
+                    # conn.commit()
 
     return frame
