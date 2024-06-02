@@ -31,7 +31,12 @@
   try {
     if (navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices
-        .getUserMedia({ video: true })
+        .getUserMedia({
+          video: {
+            facingMode: "environment",
+          },
+          audio: false,
+        })
         .then(function (stream) {
           video.srcObject = stream;
           video.play();
